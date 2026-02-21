@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jeam Mobile's - Professional Repair System</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+:root {
+    --bg: #f4f6f9;
+    --card: white;
+    --text: #111;
+    --primary: #1e3a8a;
+}
+
+.dark {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --text: white;
+    --primary: #0ea5e9;
+}
+
+body {
+    margin:0;
+    font-family:Arial;
+    background:var(--bg);
+    color:var(--text);
+}
+
+header {
+    background:var(--primary);
+    color:white;
+    padding:15px;
+    display:flex;
+    justify-content:space-between;
+}
+
+button {
+    padding:8px;
+    margin:5px 0;
+    cursor:pointer;
+}
+
+.container {
+    padding:20px;
+}
+
+.card {
+    background:var(--card);
+    padding:20px;
+    border-radius:10px;
+    margin-bottom:20px;
+}
+
+input, select, textarea {
+    width:100%;
+    padding:8px;
+    margin:5px 0;
+}
+
+table {
+    width:100%;
+    border-collapse:collapse;
+}
+
+th, td {
+    border:1px solid #ccc;
+    padding:8px;
+    text-align:center;
+}
+</style>
+</head>
+<body>
+
+<header>
+<h2>JEAM MOBILE'S SYSTEM</h2>
+<div>
+<button onclick="toggleTheme()">Toggle Theme</button>
+<button onclick="logout()">Logout</button>
+</div>
+</header>
+
+<div class="container">
+
+<!-- LOGIN -->
+<div id="loginSection" class="card">
+<h3>Admin Login</h3>
+<input type="email" id="email" placeholder="Email">
+<input type="password" id="password" placeholder="Password">
+<button onclick="login()">Login</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" style="display:none">
+
+<div class="card">
+<h3>Dashboard</h3>
+<p>Total Jobs: <span id="totalJobs">0</span></p>
+<p>Total Customers: <span id="totalCustomers">0</span></p>
+<p>Total Revenue: ₦<span id="totalRevenue">0</span></p>
+</div>
+
+<div class="card">
+<h3>Register Repair Job</h3>
+
+<input id="name" placeholder="Customer Name">
+<input id="phone" placeholder="Phone Number">
+<input id="model" placeholder="Phone Model">
+<input id="color" placeholder="Phone Color">
+<textarea id="problem" placeholder="Phone Problem"></textarea>
+<input id="price" type="number" placeholder="Repair Price">
+
+<select id="status">
+<option>Pending</option>
+<option>In Progress</option>
+<option>Fixed</option>
+<option>Collected</option>
+</select>
+
+<label>Customer Photo</label>
+<input type="file" id="photo" accept="image/*">
+
+<label>Customer Video</label>
+<input type="file" id="video" accept="video/*">
+
+<button onclick="simulateFingerprint()">Scan Fingerprint</button>
+<button onclick="saveJob()">Save Job</button>
+</div>
+
+<div class="card">
+<h3>Repair Records</h3>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Phone</th>
+<th>Model</th>
+<th>Status</th>
+<th>Price</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="tableBody"></tbody>
+</table>
+</div>
+
+</div>
+</div>
+
+<script>
+let users = JSON.parse(localStorage.getItem("users")) || [];
+let jobs = JSON.parse(localStorage.getItem("jobs")) || [];
+let fingerprintDB = JSON.parse(localStorage.getItem("fingerprints")) || {};
+
+function login(){
+    let email = document.getElementById("email").value;
+    let password = document.getElementById("password").value;
+
+    if(email && password){
+        document.getElementById("loginSection").style.display="none";
+        document.getElementById("dashboard").style.display="block";
+        updateDashboard();
+    } else {
+        alert("Enter login details");
+    }
+}
+
+function logout(){
+    location.reload();
+}
+
+function toggleTheme(){
+    document.body.classList.toggle("dark");
+}
+
+function simulateFingerprint(){
+    let phone = document.getElementById("phone").value;
+    if(fingerprintDB[phone]){
+        let data = fingerprintDB[phone];
+        document.getElementById("name").value = data.name;
+        document.getElementById("model").value = data.model;
+        document.getElementById("color").value = data.color;
+        alert("Returning customer loaded!");
+    } else {
+        alert("New fingerprint saved for this customer");
+    }
+}
+
+function saveJob(){
+    let name = document.getElementById("name").value;
+    let phone = document.getElementById("phone").value;
+    let model = document.getElementById("model").value;
+    let color = document.getElementById("color").value;
+    let problem = document.getElementById("problem").value;
+    let price = document.getElementById("price").value;
+    let status = document.getElementById("status").value;
+
+    let job = {name, phone, model, color, problem, price, status};
+
+    jobs.push(job);
+    fingerprintDB[phone] = {name, model, color};
+
+    localStorage.setItem("jobs", JSON.stringify(jobs));
+    localStorage.setItem("fingerprints", JSON.stringify(fingerprintDB));
+
+    updateDashboard();
+    renderTable();
+}
+
+function updateDashboard(){
+    document.getElementById("totalJobs").innerText = jobs.length;
+    document.getElementById("totalCustomers").innerText = Object.keys(fingerprintDB).length;
+
+    let revenue = jobs.reduce((sum, j)=> sum + Number(j.price), 0);
+    document.getElementById("totalRevenue").innerText = revenue;
+}
+
+function renderTable(){
+    let body = document.getElementById("tableBody");
+    body.innerHTML="";
+    jobs.forEach((j,i)=>{
+        body.innerHTML += `
+        <tr>
+        <td>${j.name}</td>
+        <td>${j.phone}</td>
+        <td>${j.model}</td>
+        <td>${j.status}</td>
+        <td>₦${j.price}</td>
+        <td>
+        <button onclick="printReceipt(${i})">Print</button>
+        <button onclick="downloadPDF(${i})">PDF</button>
+        </td>
+        </tr>`;
+    });
+}
+
+function printReceipt(index){
+    let j = jobs[index];
+    let receipt = `
+    JEAM MOBILE'S RECEIPT
+    -------------------------
+    Name: ${j.name}
+    Phone: ${j.phone}
+    Model: ${j.model}
+    Problem: ${j.problem}
+    Price: ₦${j.price}
+    Status: ${j.status}
+    `;
+    let w = window.open();
+    w.document.write("<pre>"+receipt+"</pre>");
+    w.print();
+}
+
+function downloadPDF(index){
+    const { jsPDF } = window.jspdf;
+    let doc = new jsPDF();
+    let j = jobs[index];
+
+    doc.text("JEAM MOBILE'S RECEIPT", 20,20);
+    doc.text("Name: "+j.name, 20,30);
+    doc.text("Phone: "+j.phone, 20,40);
+    doc.text("Model: "+j.model, 20,50);
+    doc.text("Problem: "+j.problem, 20,60);
+    doc.text("Price: ₦"+j.price, 20,70);
+    doc.text("Status: "+j.status, 20,80);
+
+    doc.save("receipt.pdf");
+}
+
+renderTable();
+updateDashboard();
+</script>
+
+</body>
+</html>
